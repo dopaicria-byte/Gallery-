@@ -1,0 +1,17 @@
+{
+  "name": "Galeria Pro",
+  "short_name": "Galeria",
+  "start_url": "index.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f2f2f7",
+  "theme_color": "#007aff",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/527/527489.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

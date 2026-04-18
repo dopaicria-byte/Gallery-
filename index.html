@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Galeria Pro iOS</title>
+    
+    <link rel="manifest" href="manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/527/527489.png">
+    <meta name="theme-color" content="#007aff">
+
+    <style>
+        :root {
+            --ios-blue: #007aff;
+            --ios-bg: #f2f2f7;
+            --ios-card: #ffffff;
+            --ios-red: #ff3b30;
+            --ios-gray: #8e8e93;
+        }
+
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: var(--ios-bg);
+            color: #000;
+            user-select: none;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* 🔒 LOCK SCREEN */
+        #lock {
+            position: fixed; inset: 0; background: #000; color: #fff;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            z-index: 10000; transition: 0.5s ease;
+        }
+        #lock input {
+            padding: 15px; border-radius: 12px; border: none; background: #1c1c1e;
+            color: #fff; font-size: 18px; text-align: center; margin-bottom: 20px; width: 220px;
+        }
+
+        /* HEADER */
+        header {
+            padding: 40px 20px 10px;
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(20px);
+            position: sticky; top: 0; z-index: 1000;
+        }
+        #title { font-size: 32px; font-weight: 800; letter-spacing: -1px; }
+
+        /* CONTENT */
+        #content { flex: 1; overflow-y: auto; padding-bottom: 120px; }
+        
+        #grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; padding: 15px; }
+        #photos { display: none; grid-template-columns: repeat(3, 1fr); gap: 2px; padding: 2px; }
+
+        /* PASTA / FOTO */
+        .folder {
+            background: var(--ios-card); border-radius: 14px; overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05); transition: 0.2s;
+        }
+        .folder:active { transform: scale(0.96); }
+        .folder-thumb { height: 150px; background: #e5e5ea; display: flex; align-items: center; justify-content: center; }
+        .folder-thumb img { width: 100%; height: 100%; object-fit: cover; }
+        .folder-info { padding: 12px; }
+        .folder-name { font-weight: 600; font-size: 16px; display: block; }
+        
+        .photo-container { position: relative; aspect-ratio: 1; overflow: hidden; }
+        .photo { width: 100%; height: 100%; object-fit: cover; }
+        .fav-badge { position: absolute; bottom: 5px; right: 5px; color: #ffcc00; font-size: 14px; }
+
+        /* NAV BAR */
+        #nav {
+            display: flex; justify-content: space-around; padding: 10px 0 30px;
+            background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(20px);
+            border-top: 1px solid #d1d1d6; position: fixed; bottom: 0; width: 100%; z-index: 2000;
+        }
+        .tab { font-size: 10px; color: var(--ios-gray); text-align: center; flex: 1; cursor: pointer; }
+        .tab.active { color: var(--ios-blue); }
+        .tab-icon { font-size: 24px; display: block; margin-bottom: 3px; }
+
+        /* VIEWER */
+        #viewer {
+            display: none; position: fixed; inset: 0; background: #000; z-index: 11000;
+            flex-direction: column; justify-content: center; align-items: center;
+        }
+        #viewer img { max-width: 100%; max-height: 85%; transition: transform 0.3s ease; }
+        .view-actions { position: absolute; bottom: 60px; display: flex; gap: 60px; z-index: 100; }
+        .action-btn { background: none; border: none; font-size: 30px; color: #fff; cursor: pointer; }
+
+        /* FAB */
+        #add-btn {
+            position: fixed; bottom: 110px; right: 25px; width: 60px; height: 60px;
+            background: var(--ios-blue); color: #fff; border-radius: 50%; border: none;
+            font-size: 30px; box-shadow: 0 4px 15px rgba(0,122,255,0.4); z-index: 1500;
+        }
+
+        .fade { animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+
+<div id="lock">
+    <span style="font-size: 60px; margin-bottom: 20px;">👤</span>
+    <input id="pass" type="password" placeholder="Senha">
+    <button onclick="login()" style="background:none; border:none; color:var(--ios-blue); font-weight:600; font-size: 16px;">Entrar</button>
+</div>
+
+<header>
+    <span id="title">Álbuns</span>
+</header>
+
+<div id="content">
+    <div id="grid" class="fade"></div>
+    <div id="photos"></div>
+</div>
+
+<div id="viewer">
+    <button onclick="closeViewer()" style="position:absolute; top:50px; left:25px;" class="action-btn">✕</button>
+    <div id="swipe-area" style="width:100%; height:100%; display:flex; align-items:center; justify-content:center;">
+        <img id="imgView">
+    </div>
+    <div class="view-actions">
+        <button onclick="toggleFav()" id="fav-btn" class="action-btn">⭐</button>
+        <button onclick="moveToTrash()" id="trash-btn" class="action-btn">🗑️</button>
+    </div>
+</div>
+
+<button id="add-btn" onclick="handlePlus()">＋</button>
+
+<div id="nav">
+    <div class="tab active" onclick="changeTab('albums', this)"><span class="tab-icon">📁</span>Álbuns</div>
+    <div class="tab" onclick="changeTab('favs', this)"><span class="tab-icon">⭐</span>Favoritos</div>
+    <div class="tab" onclick="changeTab('trash', this)"><span class="tab-icon">🗑️</span>Lixeira</div>
+</div>
+
+<script>
+    // Registro do Service Worker para instalação
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('sw.js').catch(err => console.log("SW Erro:", err));
+    }
+
+    let db, atualAlbum = null, viewIndex = null, currentMode = 'albums';
+    let allPhotos = [], touchStartX = 0, touchEndX = 0;
+
+    function login() {
+        if(document.getElementById("pass").value === "1234") {
+            document.getElementById("lock").style.display = "none";
+            initDB();
+        } else { alert("Senha Incorreta"); }
+    }
+
+    function initDB() {
+        const req = indexedDB.open("GaleriaFinal_V5", 1);
+        req.onupgradeneeded = e => e.target.result.createObjectStore("pastas", {keyPath:"id", autoIncrement:true});
+        req.onsuccess = e => { db = e.target.result; carregar(); };
+    }
+
+    function changeTab(mode, el) {
+        currentMode = mode;
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        el.classList.add('active');
+        atualAlbum = null;
+        carregar();
+    }
+
+    function carregar() {
+        const grid = document.getElementById("grid");
+        const photos = document.getElementById("photos");
+        const title = document.getElementById("title");
+        grid.innerHTML = ""; photos.innerHTML = "";
+        allPhotos = [];
+
+        if (currentMode === 'albums' && !atualAlbum) {
+            title.innerText = "Álbuns";
+            grid.style.display = "grid"; photos.style.display = "none";
+            const tx = db.transaction("pastas", "readonly");
+            tx.objectStore("pastas").openCursor().onsuccess = e => {
+                const c = e.target.result;
+                if(!c) return;
+                const p = c.value;
+                const folderPhotos = p.fotos.filter(f => !f.deleted);
+                const div = document.createElement("div");
+                div.className = "folder fade";
+                div.innerHTML = `
+                    <div class="folder-thumb">${folderPhotos.length > 0 ? `<img src="${folderPhotos[0].src}">` : "📁"}</div>
+                    <div class="folder-info"><span class="folder-name">${p.nome}</span><small style="color:#8e8e93">${folderPhotos.length} fotos</small></div>
+                `;
+                div.onclick = () => { atualAlbum = p; carregar(); };
+                
+                let t;
+                div.onpointerdown = () => t = setTimeout(() => {
+                    if(confirm("Apagar Álbum Inteiro?")) {
+                        db.transaction("pastas","readwrite").objectStore("pastas").delete(p.id).onsuccess = carregar;
+                    }
+                }, 800);
+                div.onpointerup = () => clearTimeout(t);
+
+                grid.appendChild(div);
+                c.continue();
+            };
+        } else {
+            grid.style.display = "none"; photos.style.display = "grid";
+            const tx = db.transaction("pastas", "readonly");
+            tx.objectStore("pastas").openCursor().onsuccess = e => {
+                const c = e.target.result;
+                if(!c) { renderPhotos(); return; }
+                const p = c.value;
+                p.fotos.forEach(f => {
+                    f.albumId = p.id;
+                    if (currentMode === 'favs' && f.fav && !f.deleted) allPhotos.push(f);
+                    else if (currentMode === 'trash' && f.deleted) allPhotos.push(f);
+                    else if (atualAlbum && p.id === atualAlbum.id && !f.deleted) allPhotos.push(f);
+                });
+                c.continue();
+            };
+        }
+    }
+
+    function renderPhotos() {
+        document.getElementById("title").innerText = atualAlbum ? atualAlbum.nome : (currentMode === 'favs' ? 'Favoritos' : 'Lixeira');
+        const list = document.getElementById("photos");
+        allPhotos.forEach((f, i) => {
+            const div = document.createElement("div");
+            div.className = "photo-container fade";
+            div.innerHTML = `<img src="${f.src}" class="photo">${f.fav ? '<span class="fav-badge">⭐</span>' : ''}`;
+            div.onclick = () => openViewer(i);
+            list.appendChild(div);
+        });
+    }
+
+    function openViewer(i) {
+        viewIndex = i;
+        const f = allPhotos[i];
+        const img = document.getElementById("imgView");
+        img.src = f.src;
+        document.getElementById("fav-btn").style.color = f.fav ? "#ffcc00" : "#fff";
+        document.getElementById("trash-btn").innerText = currentMode === 'trash' ? "♻️" : "🗑️";
+        document.getElementById("viewer").style.display = "flex";
+    }
+
+    function closeViewer() { document.getElementById("viewer").style.display = "none"; }
+
+    const swipeArea = document.getElementById("swipe-area");
+    swipeArea.addEventListener('touchstart', e => touchStartX = e.changedTouches[0].screenX);
+    swipeArea.addEventListener('touchend', e => {
+        touchEndX = e.changedTouches[0].screenX;
+        const diff = touchStartX - touchEndX;
+        if (Math.abs(diff) > 50) {
+            const dir = diff > 0 ? 1 : -1;
+            const newIdx = viewIndex + dir;
+            if (newIdx >= 0 && newIdx < allPhotos.length) openViewer(newIdx);
+        }
+    });
+
+    async function toggleFav() {
+        const p = allPhotos[viewIndex];
+        p.fav = !p.fav;
+        await updateDB(p);
+        openViewer(viewIndex);
+        carregar();
+    }
+
+    async function moveToTrash() {
+        const p = allPhotos[viewIndex];
+        if (currentMode === 'trash') {
+            if(confirm("Recuperar foto?")) p.deleted = false;
+            else if(confirm("Excluir permanentemente?")) p.hardDelete = true;
+        } else { p.deleted = true; }
+        
+        await updateDB(p);
+        closeViewer();
+        carregar();
+    }
+
+    async function updateDB(photo) {
+        return new Promise(res => {
+            const tx = db.transaction("pastas", "readwrite");
+            const st = tx.objectStore("pastas");
+            st.get(photo.albumId).onsuccess = e => {
+                const pasta = e.target.result;
+                const idx = pasta.fotos.findIndex(f => f.id === photo.id);
+                if (photo.hardDelete) pasta.fotos.splice(idx, 1);
+                else pasta.fotos[idx] = photo;
+                st.put(pasta).onsuccess = () => res();
+            };
+        });
+    }
+
+    function handlePlus() {
+        if(!atualAlbum) {
+            const n = prompt("Nome do Álbum:");
+            if(n) db.transaction("pastas","readwrite").objectStore("pastas").add({nome:n, fotos:[]}).onsuccess = carregar;
+        } else {
+            const inp = document.createElement('input');
+            inp.type = 'file'; inp.multiple = true;
+            inp.onchange = e => {
+                Array.from(e.target.files).forEach((f, idx, arr) => {
+                    const r = new FileReader();
+                    r.onload = ev => {
+                        atualAlbum.fotos.push({ src: ev.target.result, fav: false, deleted: false, id: Date.now() + Math.random() });
+                        if (idx === arr.length - 1) {
+                            db.transaction("pastas","readwrite").objectStore("pastas").put(atualAlbum).oncomplete = carregar;
+                        }
+                    };
+                    r.readAsDataURL(f);
+                });
+            };
+            inp.click();
+        }
+    }
+</script>
+</body>
+</html>
